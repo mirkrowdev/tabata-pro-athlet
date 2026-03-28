@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CIRCUIT_KEY = '@tabata:circuits';
 const SESSION_KEY = '@tabata:sessions';
+const ACTIVE_CIRCUIT_KEY = '@tabata:activeCircuit';
 
 async function getJSON(key, fallback) {
   try {
@@ -53,9 +54,19 @@ export async function saveSession(session) {
   return success;
 }
 
+export async function getActiveCircuit() {
+  return await getJSON(ACTIVE_CIRCUIT_KEY, null);
+}
+
+export async function setActiveCircuit(circuit) {
+  return await setJSON(ACTIVE_CIRCUIT_KEY, circuit);
+}
+
 export default {
   getCircuits,
   saveCircuit,
   getSessions,
   saveSession,
+  getActiveCircuit,
+  setActiveCircuit,
 };

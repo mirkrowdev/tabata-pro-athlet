@@ -1,101 +1,188 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
-import useWorkout from '../hooks/useWorkout';
+﻿import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Alert } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { getActiveCircuit, saveSession } from '../storage';
+import { useKeepAwake } from 'expo-keep-awake';
 import useTimer from '../hooks/useTimer';
-import TimerDisplay from '../components/TimerDisplay';
-import colors from '../constants/colors';
+
+const { width } = Dimensions.get('window');
+
+const phaseColors = {
+  IDLE: '#666',
+  WARMUP: '#BA7517',
+  EXERCISE: '#e63946',
+  REST: '#1D9E75',
+  ROUND_REST: '#BA7517',
+  COOLDOWN: '#BA7517',
+  DONE: '#666',
+};
+
+const phaseLabels = {
+  IDLE: 'PRONTO',
+  WARMUP: 'PREPARATI',
+  EXERCISE: 'ESERCIZIO',
+  REST: 'RECUPERO',
+  ROUND_REST: 'PAUSA ROUND',
+  COOLDOWN: 'OTTIMO LAVORO',
+  DONE: 'FINITO',
+};
 
 export default function WorkoutScreen() {
-  const { circuits, addSession } = useWorkout();
-  const [selectedCircuitId, setSelectedCircuitId] = useState(null);
-  const [phase, setPhase] = useState('IDLE');
-  const [progress, setProgress] = useState({ round: 1, index: 0 });
+  const [circuit, setCircuit] = useState(null);
+  const [status, setStatus] = useState('IDLE');
+  const [startTimestamp, setStartTimestamp] = useState(null);
 
-  const circuit = useMemo(() => circuits.find((c) => c.id === selectedCircuitId), [circuits, selectedCircuitId]);
+  useKeepAwake(status === 'EXERCISE' || status === 'WARMUP' || status === 'REST' || status === 'ROUND_REST' || status === 'COOLDOWN');
 
-  const onDone = async () => {
-    const duration = circuit ? circuit.rounds * (circuit.exercises.reduce((sum, ex) => sum + ex.duration + ex.rest, 0)) : 0;
-    await addSession({
-      startedAt: new Date().toISOString(),
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadActive = async () => {
+        const active = await getActiveCircuit();
+        setCircuit(active);
+      };
+      loadActive();
+    }, [])
+  );
+
+  const handleDone = async () => {
+    const duration = startTimestamp ? Math.floor((new Date() - startTimestamp) / 1000) : 0;
+    await saveSession({
+      startedAt: startTimestamp?.toISOString(),
       totalDuration: duration,
       circuitName: circuit?.name || 'Non definito',
       roundsCompleted: circuit?.rounds || 0,
       completed: true,
     });
-    Alert.alert('Sessione finita', 'Sessione registrata nello storico');
+    Alert.alert('Sessione completata', 'Sessione salvata in storico.');
+    setStatus('DONE');
   };
 
-  const { status, seconds, round, index, running, start, stop } = useTimer({
-    circuit: circuit || { exercises: [], rounds: 1, warmup: 0, cooldown: 0, roundRest: 0 },
-    onPhaseChange: (value) => {
-      setPhase(value);
-      setProgress((p) => ({ ...p, round: value === 'EXERCISE' ? p.round : p.round }));
-    },
-    onDone,
+  const {
+    seconds,
+    currentStep,
+    running,
+    paused,
+    start,
+    stop,
+    togglePause,
+  } = useTimer({
+    circuit,
+    onPhaseChange: (phaseType) => setStatus(phaseType),
+    onDone: handleDone,
   });
 
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Workout</Text>
+  const totalDuration = useMemo(() => {
+    if (!circuit) return 0;
+    const exerciseTotal = circuit.exercises.reduce((sum, ex) => sum + ex.duration + ex.rest, 0);
+    return circuit.warmup + exerciseTotal * circuit.rounds + circuit.roundRest * (circuit.rounds - 1) + circuit.cooldown;
+  }, [circuit]);
 
-      <Text style={styles.label}>Circuito selezionato</Text>
-      {circuits.length === 0 && <Text style={styles.sub}>Nessun circuito salvato. Vai su Builder per crearne uno.</Text>}
-      {circuits.map((c) => (
-        <TouchableOpacity
-          key={c.id}
-          style={[styles.circuitItem, selectedCircuitId === c.id ? styles.circuitSelected : null]}
-          onPress={() => setSelectedCircuitId(c.id)}
-        >
-          <Text style={styles.circuitText}>{c.name}</Text>
-          <Text style={styles.circuitHint}>{`Esercizi: ${c.exercises.length}`}</Text>
-        </TouchableOpacity>
-      ))}
+  const progressPercent = useMemo(() => {
+    if (!circuit || currentStep == null) return 0;
+    // Approx: non preciso, ma qualcosa
+    const before = 0; // fallback
+    return 0;
+  }, [circuit, currentStep, seconds]);
 
-      <TimerDisplay
-        phase={phase}
-        seconds={seconds}
-        round={round}
-        totalRounds={circuit?.rounds || 1}
-        exerciseName={circuit?.exercises?.[index]?.name}
-      />
+  if (!circuit) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.noCircuit}>Nessun circuito attivo. Vai su Builder per crearne uno.</Text>
+      </View>
+    );
+  }
 
-      <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.startButton} onPress={start} disabled={!circuit || running}>
-          <Text style={styles.startText}>Start</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.stopButton} onPress={stop} disabled={!running}>
-          <Text style={styles.stopText}>Stop</Text>
+  if (status === 'DONE') {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.doneTitle}>Sessione completata!</Text>
+        <Text style={styles.doneText}>Durata totale: {totalDuration} secondi (stimato)</Text>
+        <TouchableOpacity style={styles.doneButton} onPress={() => setStatus('IDLE')}>
+          <Text style={styles.doneButtonText}>Chiudi</Text>
         </TouchableOpacity>
       </View>
-      <Text style={styles.status}>Stato: {status}</Text>
-    </ScrollView>
+    );
+  }
+
+  const nextUpText = currentStep?.type === 'EXERCISE' ? 'Recupero' : '...';
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerLeft}>{circuit.name}</Text>
+        <Text style={styles.headerRight}>{phaseLabels[status] || status}</Text>
+      </View>
+
+      <View style={[styles.phaseBadge, { backgroundColor: phaseColors[status] || '#444' }]}>
+        <Text style={styles.phaseText}>{phaseLabels[status] || status}</Text>
+      </View>
+
+      <Text style={styles.exerciseName}>{currentStep?.name || (status === 'IDLE' ? 'Pronto' : status)}</Text>
+      <Text style={styles.subtitle}>{currentStep?.type === 'EXERCISE' ? `Esercizio ${currentStep.index + 1} di ${circuit.exercises.length} · Round ${currentStep.round}/${circuit.rounds}` : ''}</Text>
+
+      <View style={styles.progressBar}><View style={[styles.progressFill, { width: `${(totalDuration > 0 ? ((totalDuration - seconds) / totalDuration) * 100 : 0)}%` }]} /></View>
+
+      <View style={[styles.timerCircle, { borderColor: phaseColors[status] || '#666' }]}>
+        <Text style={styles.timerText}>{seconds}</Text>
+        <Text style={styles.timerLabel}>sec</Text>
+      </View>
+
+      <View style={styles.bipDots}>{Array.from({ length: 10 }, (_, i) => i < (seconds <= 10 ? 10 - seconds : 0)).map((active, i) => (<View key={i} style={[styles.dot, active && styles.dotActive]} />))}</View>
+
+      <View style={styles.controls}>
+        <TouchableOpacity style={styles.controlButton} onPress={stop}>
+          <Text style={styles.controlText}>■</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.controlButton, styles.playButton]} onPress={() => {
+          if (!running) {
+            setStartTimestamp(new Date());
+            start();
+          } else {
+            togglePause();
+          }
+        }}>
+          <Text style={styles.controlText}>{running ? (paused ? '▶' : '⏸') : '▶'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.controlButton} onPress={stop}>
+          <Text style={styles.controlText}>⏭</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.nextUp}>
+        <Text style={styles.nextLabel}>PROSSIMO</Text>
+        <Text style={styles.nextText}>{nextUpText}</Text>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 16 },
-  title: { color: colors.primary, fontSize: 22, fontWeight: '700' },
-  label: { color: colors.textSecondary, marginTop: 12 },
-  sub: { color: colors.text, marginTop: 6 },
-  circuitItem: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  circuitSelected: {
-    borderColor: colors.accent,
-    borderWidth: 2,
-  },
-  circuitText: { color: colors.text, fontWeight: '600' },
-  circuitHint: { color: colors.textSecondary, fontSize: 12 },
-  buttonRow: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 16 },
-  startButton: { backgroundColor: colors.primary, padding: 12, borderRadius: 10, width: '45%' },
-  stopButton: { backgroundColor: colors.error, padding: 12, borderRadius: 10, width: '45%' },
-  startText: { color: '#fff', textAlign: 'center', fontWeight: '700' },
-  stopText: { color: '#fff', textAlign: 'center', fontWeight: '700' },
-  status: { color: colors.textSecondary, marginTop: 12 },
+  container: { flex: 1, backgroundColor: '#0d0d0d', padding: 16 },
+  noCircuit: { color: '#fff', textAlign: 'center', marginTop: 100 },
+  doneTitle: { color: '#fff', fontSize: 24, textAlign: 'center', marginTop: 100 },
+  doneText: { color: '#666', textAlign: 'center', marginTop: 20 },
+  doneButton: { backgroundColor: '#e63946', padding: 12, borderRadius: 8, marginTop: 20, alignSelf: 'center' },
+  doneButtonText: { color: '#fff', fontWeight: 'bold' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#111', padding: 12, borderBottomWidth: 1, borderBottomColor: '#222' },
+  headerLeft: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  headerRight: { color: '#666', fontSize: 14 },
+  phaseBadge: { alignSelf: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginTop: 20 },
+  phaseText: { color: '#fff', fontWeight: 'bold' },
+  exerciseName: { color: '#fff', fontSize: 22, fontWeight: '700', textAlign: 'center', marginTop: 20 },
+  subtitle: { color: '#666', fontSize: 12, textAlign: 'center', marginTop: 8 },
+  progressBar: { height: 2, backgroundColor: '#1a1a1a', marginTop: 20, width: '100%' },
+  progressFill: { height: 2, backgroundColor: '#e63946' },
+  timerCircle: { width: width * 0.6, height: width * 0.6, borderRadius: width * 0.3, borderWidth: 4, alignSelf: 'center', justifyContent: 'center', alignItems: 'center', marginTop: 30 },
+  timerText: { color: '#fff', fontSize: 56, fontWeight: 'bold', fontFamily: 'monospace' },
+  timerLabel: { color: '#666', fontSize: 14, marginTop: 4 },
+  bipDots: { flexDirection: 'row', justifyContent: 'center', marginTop: 20 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#1a1a1a', marginHorizontal: 2 },
+  dotActive: { backgroundColor: '#e63946' },
+  controls: { flexDirection: 'row', justifyContent: 'center', marginTop: 40 },
+  controlButton: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center', marginHorizontal: 10 },
+  playButton: { backgroundColor: '#e63946', width: 80, height: 80, borderRadius: 40 },
+  controlText: { color: '#fff', fontSize: 20 },
+  nextUp: { backgroundColor: '#151515', padding: 16, borderRadius: 8, marginTop: 40 },
+  nextLabel: { color: '#666', fontSize: 12, fontWeight: 'bold' },
+  nextText: { color: '#fff', fontSize: 16, marginTop: 4 },
 });

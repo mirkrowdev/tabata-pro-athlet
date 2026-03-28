@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert 
 import colors from '../constants/colors';
 import defaults from '../constants/defaults';
 import ExerciseCard from '../components/ExerciseCard';
-import { getCircuits, saveCircuit } from '../storage';
+import { getCircuits, saveCircuit, setActiveCircuit } from '../storage';
 
 const initialState = {
   name: '',
@@ -67,6 +67,29 @@ export default function BuilderScreen() {
     return state.warmup + roundsTotal + state.roundRest * (state.rounds - 1) + state.cooldown;
   }, [state]);
 
+  const previewSequence = useMemo(() => {
+    const sequence = [];
+    if (state.warmup > 0) {
+      sequence.push({ type: 'warmup', label: `Warm-up (${state.warmup}s)`, color: '#BA7517' });
+    }
+    for (let r = 1; r <= state.rounds; r++) {
+      sequence.push({ type: 'round', label: `[Round ${r}]`, color: colors.textSecondary });
+      state.exercises.forEach((ex, i) => {
+        sequence.push({ type: 'exercise', label: `Esercizio ${i + 1} — ${ex.name}, ${ex.duration}s`, color: '#e63946' });
+        if (ex.rest > 0) {
+          sequence.push({ type: 'rest', label: `Recupero — ${ex.rest}s`, color: '#1D9E75' });
+        }
+      });
+      if (state.roundRest > 0 && r < state.rounds) {
+        sequence.push({ type: 'roundRest', label: `Riposo round (${state.roundRest}s)`, color: '#BA7517' });
+      }
+    }
+    if (state.cooldown > 0) {
+      sequence.push({ type: 'cooldown', label: `Cool-down (${state.cooldown}s)`, color: '#BA7517' });
+    }
+    return sequence;
+  }, [state]);
+
   const onSaveCircuit = async () => {
     if (!state.name.trim()) {
       Alert.alert('Nome richiesto', 'Inserisci un nome per il circuito');
@@ -79,13 +102,14 @@ export default function BuilderScreen() {
 
     setIsLoading(true);
     const success = await saveCircuit({ ...state, updatedAt: new Date().toISOString() });
-    setIsLoading(false);
     if (success) {
-      Alert.alert('Salvato', 'Circuito salvato correttamente');
+      await setActiveCircuit({ ...state, updatedAt: new Date().toISOString() });
+      Alert.alert('Salvato', 'Circuito salvato e impostato come attivo');
       loadCircuits();
     } else {
       Alert.alert('Errore', 'Impossibile salvare il circuito');
     }
+    setIsLoading(false);
   };
 
   const onLoadCircuit = (circuit) => {
@@ -162,10 +186,17 @@ export default function BuilderScreen() {
         <Text style={styles.buttonText}>Aggiungi esercizio</Text>
       </TouchableOpacity>
 
-      <View style={styles.summary}>
-        <Text style={styles.summaryText}>Durata totale stimata: {totalTime} secondi</Text>
-        <Text style={styles.summaryText}>Numero esercizi: {state.exercises.length}</Text>
-      </View>
+      <Text style={[styles.subTitle, { marginTop: 16 }]}>Anteprima sequenza</Text>
+      <ScrollView style={styles.previewContainer} nestedScrollEnabled>
+        {previewSequence.map((item, index) => (
+          <Text key={index} style={[styles.previewItem, { color: item.color }]}>
+            {item.label}
+          </Text>
+        ))}
+        <Text style={[styles.previewItem, { color: colors.text, fontWeight: 'bold', marginTop: 8 }]}>
+          Durata totale stimata: {totalTime} secondi
+        </Text>
+      </ScrollView>
 
       <TouchableOpacity style={styles.saveButton} onPress={onSaveCircuit} disabled={isLoading}>
         <Text style={styles.saveButtonText}>{isLoading ? 'Salvataggio...' : 'Salva circuito'}</Text>
@@ -202,4 +233,6 @@ const styles = StyleSheet.create({
   savedCard: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, padding: 10, borderRadius: 10, marginBottom: 6 },
   savedTitle: { color: colors.text, fontWeight: '700' },
   savedMeta: { color: colors.textSecondary, fontSize: 12 },
+  previewContainer: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 8, padding: 12, marginVertical: 8, maxHeight: 200 },
+  previewItem: { color: colors.text, marginBottom: 4, fontSize: 14 },
 });
