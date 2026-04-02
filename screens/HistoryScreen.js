@@ -1,14 +1,16 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import colors from '../constants/colors';
 import useWorkout from '../hooks/useWorkout';
 
-export default function HistoryScreen() {
-  const { sessions, refresh } = useWorkout();
+const formatDuration = (seconds) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}m ${secs}s`;
+};
 
-  useEffect(() => {
-    refresh();
-  }, []);
+export default function HistoryScreen() {
+  const { sessions } = useWorkout();
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -23,7 +25,7 @@ export default function HistoryScreen() {
             <View key={session.id} style={styles.card}>
               <Text style={styles.circuitName}>{session.circuitName}</Text>
               <Text style={styles.field}>{`Inizio: ${new Date(session.startedAt).toLocaleString()}`}</Text>
-              <Text style={styles.field}>{`Durata: ${session.totalDuration}s`}</Text>
+              <Text style={styles.field}>{`Durata: ${formatDuration(session.totalDuration)}`}</Text>
               <Text style={styles.field}>{`Round completati: ${session.roundsCompleted}`}</Text>
               <Text style={styles.field}>{`Completata: ${session.completed ? 'Sì' : 'No'}`}</Text>
             </View>

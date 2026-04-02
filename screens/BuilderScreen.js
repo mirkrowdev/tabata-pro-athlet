@@ -1,17 +1,18 @@
-import React, { useEffect, useMemo, useReducer, useState } from 'react';
+import React, { useMemo, useReducer, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
 import colors from '../constants/colors';
-import defaults from '../constants/defaults';
+import { DEFAULT_CIRCUIT, DEFAULT_EXERCISE } from '../constants/defaults';
 import ExerciseCard from '../components/ExerciseCard';
-import { getCircuits, saveCircuit, setActiveCircuit } from '../storage';
+import { setActiveCircuit } from '../storage';
+import useWorkout from '../hooks/useWorkout';
 
 const initialState = {
   name: '',
   exercises: [],
-  rounds: defaults.handOff.rounds,
-  warmup: defaults.handOff.warmup,
-  cooldown: defaults.handOff.cooldown,
-  roundRest: defaults.handOff.roundRest,
+  rounds: DEFAULT_CIRCUIT.rounds,
+  warmup: DEFAULT_CIRCUIT.warmup,
+  cooldown: DEFAULT_CIRCUIT.cooldown,
+  roundRest: DEFAULT_CIRCUIT.roundRest,
 };
 
 function reducer(state, action) {
@@ -21,7 +22,7 @@ function reducer(state, action) {
     case 'ADD_EXERCISE':
       return {
         ...state,
-        exercises: [...state.exercises, { name: 'Nuovo esercizio', duration: 30, rest: 15 }],
+        exercises: [...state.exercises, { ...DEFAULT_EXERCISE, name: 'Nuovo esercizio' }],
       };
     case 'UPDATE_EXERCISE':
       return {
@@ -49,17 +50,8 @@ function reducer(state, action) {
 
 export default function BuilderScreen() {
   const [state, dispatch] = useReducer(reducer, initialState);
-  const [savedCircuits, setSavedCircuits] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-
-  const loadCircuits = async () => {
-    const existing = await getCircuits();
-    setSavedCircuits(existing || []);
-  };
-
-  useEffect(() => {
-    loadCircuits();
-  }, []);
+  const { circuits, addCircuit } = useWorkout();
 
   const totalTime = useMemo(() => {
     const exerciseTotal = state.exercises.reduce((sum, cur) => sum + cur.duration + (cur.rest || 0), 0);
@@ -78,11 +70,10 @@ export default function BuilderScreen() {
     }
 
     setIsLoading(true);
-    const success = await saveCircuit({ ...state, updatedAt: new Date().toISOString() });
+    const success = await addCircuit({ ...state, updatedAt: new Date().toISOString() });
     if (success) {
       await setActiveCircuit({ ...state, updatedAt: new Date().toISOString() });
       Alert.alert('Salvato', 'Circuito salvato e impostato come attivo');
-      loadCircuits();
     } else {
       Alert.alert('Errore', 'Impossibile salvare il circuito');
     }
@@ -170,8 +161,8 @@ export default function BuilderScreen() {
       </TouchableOpacity>
 
       <Text style={[styles.subTitle, { marginTop: 16 }]}>Circuiti salvati</Text>
-      {savedCircuits.length === 0 ? <Text style={styles.empty}>Nessun circuito trovato</Text> : null}
-      {savedCircuits.map((c) => (
+      {circuits.length === 0 ? <Text style={styles.empty}>Nessun circuito trovato</Text> : null}
+      {circuits.map((c) => (
         <TouchableOpacity key={c.id} style={styles.savedCard} onPress={() => onLoadCircuit(c)}>
           <Text style={styles.savedTitle}>{c.name || 'Circuito senza nome'}</Text>
           <Text style={styles.savedMeta}>{`Aggiornato: ${new Date(c.updatedAt || c.createdAt || '').toLocaleString()}`}</Text>

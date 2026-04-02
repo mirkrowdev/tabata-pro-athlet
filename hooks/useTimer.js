@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Vibration } from 'react-native';
-import useSpeech from './useSpeech';
+import { Audio } from 'expo-av';
+import { speak, stopSpeech } from '../utils/speech';
 
 function buildSteps(circuit) {
   const steps = [];
@@ -50,17 +51,32 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
   const [steps, setSteps] = useState([]);
   const [running, setRunning] = useState(false);
   const [paused, setPaused] = useState(false);
-  const { speak } = useSpeech();
+  const stepsRef = useRef([]);
+  const stepIndexRef = useRef(-1);
   const intervalRef = useRef(null);
+  const soundRef = useRef(null);
 
-  const makeBeep = () => {
-    Vibration.vibrate(100);
+  const makeBeep = async () => {
+    try {
+      if (soundRef.current) {
+        await soundRef.current.replayAsync();
+      } else {
+        Vibration.vibrate(100);
+      }
+    } catch (error) {
+      Vibration.vibrate(100);
+    }
   };
 
-  const enterStep = (stepIndex) => {
-    const step = steps[stepIndex];
+  const enterStep = (stepIndex, stepsOverride) => {
+    const currentSteps = stepsOverride || stepsRef.current;
+    const step = currentSteps[stepIndex];
     if (!step) return;
 
+    if (stepsOverride) {
+      setSteps(stepsOverride);
+    }
+    stepIndexRef.current = stepIndex;
     setCurrentStepIndex(stepIndex);
     setStatus(step.type);
     setSeconds(step.duration);
@@ -77,18 +93,48 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
   };
 
   const nextStep = () => {
-    const nextIndex = currentStepIndex + 1;
-    if (nextIndex >= steps.length) {
+    const currentIndex = stepIndexRef.current;
+    const currentSteps = stepsRef.current;
+    const nextIndex = currentIndex + 1;
+    if (nextIndex >= currentSteps.length) {
       setStatus('DONE');
       setSeconds(0);
       setRunning(false);
       setCurrentStepIndex(-1);
+      stepIndexRef.current = -1;
       onPhaseChange?.('DONE');
       onDone?.();
       return;
     }
     enterStep(nextIndex);
   };
+
+  useEffect(() => {
+    stepsRef.current = steps;
+  }, [steps]);
+
+  useEffect(() => {
+    stepIndexRef.current = currentStepIndex;
+  }, [currentStepIndex]);
+
+  useEffect(() => {
+    const loadSound = async () => {
+      try {
+        const { sound } = await Audio.Sound.createAsync(require('../assets/sounds/beep.mp3'));
+        soundRef.current = sound;
+      } catch (error) {
+        console.error('Failed to load beep sound:', error);
+      }
+    };
+
+    loadSound();
+
+    return () => {
+      if (soundRef.current) {
+        soundRef.current.unloadAsync();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (running && !paused) {
@@ -107,20 +153,22 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
       return () => clearInterval(intervalRef.current);
     }
     return () => {};
-  }, [running, paused, currentStepIndex, steps]);
+  }, [running, paused]);
 
   const start = () => {
     if (!circuit || !circuit.exercises?.length) return;
     const builtSteps = buildSteps(circuit);
     if (builtSteps.length === 0) return;
 
+    stepsRef.current = builtSteps;
     setSteps(builtSteps);
     setRunning(true);
     setPaused(false);
-    enterStep(0);
+    enterStep(0, builtSteps);
   };
 
   const stop = () => {
+    stopSpeech();
     setRunning(false);
     setPaused(false);
     setStatus('IDLE');
@@ -145,6 +193,7 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
     paused,
     currentStepIndex,
     currentStep: steps[currentStepIndex] || null,
+    nextStep: steps[currentStepIndex + 1] || null,
     start,
     stop,
     togglePause,

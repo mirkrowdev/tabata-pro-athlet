@@ -62,11 +62,3 @@ export async function setActiveCircuit(circuit) {
   return await setJSON(ACTIVE_CIRCUIT_KEY, circuit);
 }
 
-export default {
-  getCircuits,
-  saveCircuit,
-  getSessions,
-  saveSession,
-  getActiveCircuit,
-  setActiveCircuit,
-};

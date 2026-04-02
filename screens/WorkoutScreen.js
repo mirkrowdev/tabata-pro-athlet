@@ -1,9 +1,10 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { getActiveCircuit, saveSession } from '../storage';
+import { getActiveCircuit } from '../storage';
 import { useKeepAwake } from 'expo-keep-awake';
 import useTimer from '../hooks/useTimer';
+import useWorkout from '../hooks/useWorkout';
 
 const { width } = Dimensions.get('window');
 
@@ -31,8 +32,12 @@ export default function WorkoutScreen() {
   const [circuit, setCircuit] = useState(null);
   const [status, setStatus] = useState('IDLE');
   const [startTimestamp, setStartTimestamp] = useState(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const onDoneRef = useRef();
 
-  useKeepAwake(status === 'EXERCISE' || status === 'WARMUP' || status === 'REST' || status === 'ROUND_REST' || status === 'COOLDOWN');
+  const { addSession } = useWorkout();
+
+  useKeepAwake();
 
   useFocusEffect(
     React.useCallback(() => {
@@ -44,9 +49,30 @@ export default function WorkoutScreen() {
     }, [])
   );
 
+  const {
+    seconds,
+    currentStep,
+    running,
+    paused,
+    start,
+    stop,
+    togglePause,
+    nextStep: nextStepData,
+  } = useTimer({
+    circuit,
+    onPhaseChange: (phaseType) => setStatus(phaseType),
+    onDone: () => onDoneRef.current?.(),
+  });
+
+  useEffect(() => {
+    if (running && !paused) {
+      setElapsedSeconds(prev => prev + 1);
+    }
+  }, [seconds, running, paused]);
+
   const handleDone = async () => {
     const duration = startTimestamp ? Math.floor((new Date() - startTimestamp) / 1000) : 0;
-    await saveSession({
+    await addSession({
       startedAt: startTimestamp?.toISOString(),
       totalDuration: duration,
       circuitName: circuit?.name || 'Non definito',
@@ -57,19 +83,7 @@ export default function WorkoutScreen() {
     setStatus('DONE');
   };
 
-  const {
-    seconds,
-    currentStep,
-    running,
-    paused,
-    start,
-    stop,
-    togglePause,
-  } = useTimer({
-    circuit,
-    onPhaseChange: (phaseType) => setStatus(phaseType),
-    onDone: handleDone,
-  });
+  onDoneRef.current = handleDone;
 
   const totalDuration = useMemo(() => {
     if (!circuit) return 0;
@@ -78,11 +92,9 @@ export default function WorkoutScreen() {
   }, [circuit]);
 
   const progressPercent = useMemo(() => {
-    if (!circuit || currentStep == null) return 0;
-    // Approx: non preciso, ma qualcosa
-    const before = 0; // fallback
-    return 0;
-  }, [circuit, currentStep, seconds]);
+    if (totalDuration === 0) return 0;
+    return Math.min(100, Math.max(0, (elapsedSeconds / totalDuration) * 100));
+  }, [elapsedSeconds, totalDuration]);
 
   if (!circuit) {
     return (
@@ -104,7 +116,14 @@ export default function WorkoutScreen() {
     );
   }
 
-  const nextUpText = currentStep?.type === 'EXERCISE' ? 'Recupero' : '...';
+  const nextUpText = (() => {
+    if (!nextStepData) return 'Fine allenamento';
+    if (nextStepData.type === 'EXERCISE') return nextStepData.name || 'Esercizio';
+    if (nextStepData.type === 'REST') return 'Recupero';
+    if (nextStepData.type === 'ROUND_REST') return 'Pausa round';
+    if (nextStepData.type === 'COOLDOWN') return 'Cool down';
+    return '...';
+  })();
 
   return (
     <View style={styles.container}>
@@ -120,7 +139,7 @@ export default function WorkoutScreen() {
       <Text style={styles.exerciseName}>{currentStep?.name || (status === 'IDLE' ? 'Pronto' : status)}</Text>
       <Text style={styles.subtitle}>{currentStep?.type === 'EXERCISE' ? `Esercizio ${currentStep.index + 1} di ${circuit.exercises.length} · Round ${currentStep.round}/${circuit.rounds}` : ''}</Text>
 
-      <View style={styles.progressBar}><View style={[styles.progressFill, { width: `${(totalDuration > 0 ? ((totalDuration - seconds) / totalDuration) * 100 : 0)}%` }]} /></View>
+      <View style={styles.progressBar}><View style={[styles.progressFill, { width: `${progressPercent}%` }]} /></View>
 
       <View style={[styles.timerCircle, { borderColor: phaseColors[status] || '#666' }]}>
         <Text style={styles.timerText}>{seconds}</Text>
@@ -145,6 +164,7 @@ export default function WorkoutScreen() {
         </TouchableOpacity>
         <TouchableOpacity style={styles.controlButton} onPress={stop}>
           <Text style={styles.controlText}>⏭</Text>
+          {/* TODO: implement skip functionality instead of stop */}
         </TouchableOpacity>
       </View>
 
