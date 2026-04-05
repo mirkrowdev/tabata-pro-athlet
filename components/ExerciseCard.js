@@ -1,8 +1,15 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import colors from '../constants/colors';
 
 export default function ExerciseCard({ item, index, onChange, onDelete, onMoveUp, onMoveDown, total }) {
+  const [durationText, setDurationText] = useState(String(item.duration));
+  const [restText, setRestText] = useState(String(item.rest));
+
+  useEffect(() => {
+    setDurationText(String(item.duration));
+    setRestText(String(item.rest));
+  }, [item.duration, item.rest]);
   return (
     <View style={styles.card}>
       <Text style={styles.header}>Esercizio {index + 1}</Text>
@@ -18,18 +25,28 @@ export default function ExerciseCard({ item, index, onChange, onDelete, onMoveUp
           <Text style={styles.label}>Durata (s)</Text>
           <TextInput
             style={styles.input}
-            value={String(item.duration)}
+            value={durationText}
             keyboardType="number-pad"
-            onChangeText={(v) => onChange(index, { ...item, duration: Math.max(1, Math.min(300, Number(v) || 1)) })}
+            onChangeText={setDurationText}
+            onBlur={() => {
+              const value = durationText.trim() ? Math.max(1, Math.min(300, Number(durationText))) : 1;
+              setDurationText(String(value));
+              onChange(index, { ...item, duration: value });
+            }}
           />
         </View>
         <View style={styles.field}>
           <Text style={styles.label}>Recupero (s)</Text>
           <TextInput
             style={styles.input}
-            value={String(item.rest)}
+            value={restText}
             keyboardType="number-pad"
-            onChangeText={(v) => onChange(index, { ...item, rest: Math.max(0, Math.min(120, Number(v) || 0)) })}
+            onChangeText={setRestText}
+            onBlur={() => {
+              const value = restText.trim() ? Math.max(0, Math.min(120, Number(restText))) : 0;
+              setRestText(String(value));
+              onChange(index, { ...item, rest: value });
+            }}
           />
         </View>
       </View>

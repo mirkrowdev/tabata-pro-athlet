@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
 import { Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import HomeScreen from './screens/HomeScreen';
 import BuilderScreen from './screens/BuilderScreen';
 import WorkoutScreen from './screens/WorkoutScreen';
@@ -23,8 +24,9 @@ function Placeholder({ title }) {
 
 export default function App() {
   return (
-    <WorkoutProvider>
-      <NavigationContainer>
+    <SafeAreaProvider>
+      <WorkoutProvider>
+        <NavigationContainer>
         <StatusBar style="light" />
         <Tab.Navigator
           screenOptions={{
@@ -102,6 +104,7 @@ export default function App() {
       </Tab.Navigator>
     </NavigationContainer>
   </WorkoutProvider>
+  </SafeAreaProvider>
   );
 }
 

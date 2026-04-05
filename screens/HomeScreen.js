@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import colors from '../constants/colors';
 import { getActiveCircuit } from '../storage';
@@ -27,7 +28,8 @@ export default function HomeScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Tabata Pro Athlete</Text>
       <Text style={styles.subtitle}>Benvenuto</Text>
 
@@ -61,6 +63,7 @@ export default function HomeScreen() {
         <Text style={styles.infoText}>3. Consulta <Text style={styles.bold}>History</Text> per vedere tutte le tue sessioni salvate.</Text>
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 

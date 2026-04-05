@@ -1,5 +1,6 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { getActiveCircuit } from '../storage';
 import { useKeepAwake } from 'expo-keep-awake';
@@ -98,21 +99,25 @@ export default function WorkoutScreen() {
 
   if (!circuit) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#0d0d0d' }}>
+        <View style={styles.container}>
         <Text style={styles.noCircuit}>Nessun circuito attivo. Vai su Builder per crearne uno.</Text>
       </View>
+      </SafeAreaView>
     );
   }
 
   if (status === 'DONE') {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#0d0d0d' }}>
+        <View style={styles.container}>
         <Text style={styles.doneTitle}>Sessione completata!</Text>
         <Text style={styles.doneText}>Durata totale: {totalDuration} secondi (stimato)</Text>
         <TouchableOpacity style={styles.doneButton} onPress={() => setStatus('IDLE')}>
           <Text style={styles.doneButtonText}>Chiudi</Text>
         </TouchableOpacity>
       </View>
+      </SafeAreaView>
     );
   }
 
@@ -126,7 +131,8 @@ export default function WorkoutScreen() {
   })();
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#0d0d0d' }}>
+      <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerLeft}>{circuit.name}</Text>
         <Text style={styles.headerRight}>{phaseLabels[status] || status}</Text>
@@ -172,7 +178,8 @@ export default function WorkoutScreen() {
         <Text style={styles.nextLabel}>PROSSIMO</Text>
         <Text style={styles.nextText}>{nextUpText}</Text>
       </View>
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }
 

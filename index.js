@@ -1,3 +1,4 @@
+import './tasks/timerTask';
 import { registerRootComponent } from 'expo';
 
 import App from './App';

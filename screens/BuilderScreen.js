@@ -1,5 +1,6 @@
-import React, { useMemo, useReducer, useState } from 'react';
+import React, { useMemo, useReducer, useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import { DEFAULT_CIRCUIT, DEFAULT_EXERCISE } from '../constants/defaults';
 import ExerciseCard from '../components/ExerciseCard';
@@ -51,7 +52,18 @@ function reducer(state, action) {
 export default function BuilderScreen() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [isLoading, setIsLoading] = useState(false);
+  const [roundsText, setRoundsText] = useState(String(initialState.rounds));
+  const [warmupText, setWarmupText] = useState(String(initialState.warmup));
+  const [cooldownText, setCooldownText] = useState(String(initialState.cooldown));
+  const [roundRestText, setRoundRestText] = useState(String(initialState.roundRest));
   const { circuits, addCircuit } = useWorkout();
+
+  useEffect(() => {
+    setRoundsText(String(state.rounds));
+    setWarmupText(String(state.warmup));
+    setCooldownText(String(state.cooldown));
+    setRoundRestText(String(state.roundRest));
+  }, [state.rounds, state.warmup, state.cooldown, state.roundRest]);
 
   const totalTime = useMemo(() => {
     const exerciseTotal = state.exercises.reduce((sum, cur) => sum + cur.duration + (cur.rest || 0), 0);
@@ -85,7 +97,8 @@ export default function BuilderScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Builder Circuito</Text>
       <TextInput
         style={styles.input}
@@ -100,18 +113,28 @@ export default function BuilderScreen() {
           <Text style={styles.label}>Round</Text>
           <TextInput
             style={styles.input}
-            value={String(state.rounds)}
+            value={roundsText}
             keyboardType="number-pad"
-            onChangeText={(v) => dispatch({ type: 'SET', payload: { rounds: Math.max(1, Math.min(20, Number(v) || 1)) } })}
+            onChangeText={setRoundsText}
+            onBlur={() => {
+              const value = roundsText.trim() ? Math.max(1, Math.min(20, Number(roundsText))) : 1;
+              setRoundsText(String(value));
+              dispatch({ type: 'SET', payload: { rounds: value } });
+            }}
           />
         </View>
         <View style={styles.field}>
           <Text style={styles.label}>Warm-up</Text>
           <TextInput
             style={styles.input}
-            value={String(state.warmup)}
+            value={warmupText}
             keyboardType="number-pad"
-            onChangeText={(v) => dispatch({ type: 'SET', payload: { warmup: Math.max(0, Math.min(60, Number(v) || 0)) } })}
+            onChangeText={setWarmupText}
+            onBlur={() => {
+              const value = warmupText.trim() ? Math.max(0, Math.min(60, Number(warmupText))) : 0;
+              setWarmupText(String(value));
+              dispatch({ type: 'SET', payload: { warmup: value } });
+            }}
           />
         </View>
       </View>
@@ -120,18 +143,28 @@ export default function BuilderScreen() {
           <Text style={styles.label}>Cool-down</Text>
           <TextInput
             style={styles.input}
-            value={String(state.cooldown)}
+            value={cooldownText}
             keyboardType="number-pad"
-            onChangeText={(v) => dispatch({ type: 'SET', payload: { cooldown: Math.max(0, Math.min(120, Number(v) || 0)) } })}
+            onChangeText={setCooldownText}
+            onBlur={() => {
+              const value = cooldownText.trim() ? Math.max(0, Math.min(120, Number(cooldownText))) : 0;
+              setCooldownText(String(value));
+              dispatch({ type: 'SET', payload: { cooldown: value } });
+            }}
           />
         </View>
         <View style={styles.field}>
           <Text style={styles.label}>Riposo round</Text>
           <TextInput
             style={styles.input}
-            value={String(state.roundRest)}
+            value={roundRestText}
             keyboardType="number-pad"
-            onChangeText={(v) => dispatch({ type: 'SET', payload: { roundRest: Math.max(0, Math.min(120, Number(v) || 0)) } })}
+            onChangeText={setRoundRestText}
+            onBlur={() => {
+              const value = roundRestText.trim() ? Math.max(0, Math.min(120, Number(roundRestText))) : 0;
+              setRoundRestText(String(value));
+              dispatch({ type: 'SET', payload: { roundRest: value } });
+            }}
           />
         </View>
       </View>
@@ -169,6 +202,7 @@ export default function BuilderScreen() {
         </TouchableOpacity>
       ))}
     </ScrollView>
+    </SafeAreaView>
   );
 }
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import useWorkout from '../hooks/useWorkout';
 
@@ -13,7 +14,8 @@ export default function HistoryScreen() {
   const { sessions } = useWorkout();
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Storico sessioni</Text>
       {sessions.length === 0 ? (
         <Text style={styles.empty}>Nessuna sessione registrata</Text>
@@ -32,6 +34,7 @@ export default function HistoryScreen() {
           ))
       )}
     </ScrollView>
+    </SafeAreaView>
   );
 }
 

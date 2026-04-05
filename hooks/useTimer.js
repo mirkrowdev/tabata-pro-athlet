@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Vibration } from 'react-native';
 import { Audio } from 'expo-av';
+import * as TaskManager from 'expo-task-manager';
+import * as BackgroundFetch from 'expo-background-fetch';
 import { speak, stopSpeech } from '../utils/speech';
 
 function buildSteps(circuit) {
@@ -55,6 +57,9 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
   const stepIndexRef = useRef(-1);
   const intervalRef = useRef(null);
   const soundRef = useRef(null);
+  const stepStartTimeRef = useRef(null);
+  const pausedAtRef = useRef(null);
+  const totalPausedMsRef = useRef(0);
 
   const makeBeep = async () => {
     try {
@@ -80,6 +85,11 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
     setCurrentStepIndex(stepIndex);
     setStatus(step.type);
     setSeconds(step.duration);
+
+    // Reset timing for new step
+    stepStartTimeRef.current = Date.now();
+    totalPausedMsRef.current = 0;
+    pausedAtRef.current = null;
 
     if (onPhaseChange) {
       onPhaseChange(step.type, step);
@@ -140,14 +150,21 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
     if (running && !paused) {
       intervalRef.current = setInterval(() => {
         setSeconds((s) => {
-          if (s <= 1) {
+          const currentStep = stepsRef.current[stepIndexRef.current];
+          if (!currentStep) return s;
+
+          // Calculate remaining time using timestamp-based approach
+          const elapsed = Date.now() - stepStartTimeRef.current - totalPausedMsRef.current;
+          const remaining = Math.max(0, currentStep.duration - Math.floor(elapsed / 1000));
+
+          if (remaining <= 0) {
             nextStep();
             return 0;
           }
-          if (s <= 11) {
+          if (remaining <= 10) {
             makeBeep();
           }
-          return s - 1;
+          return remaining;
         });
       }, 1000);
       return () => clearInterval(intervalRef.current);
@@ -165,6 +182,12 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
     setRunning(true);
     setPaused(false);
     enterStep(0, builtSteps);
+
+    // Configure audio to stay active in background
+    Audio.setAudioModeAsync({
+      staysActiveInBackground: true,
+      shouldDuckAndroid: true,
+    }).catch((error) => console.error('Failed to set audio mode:', error));
   };
 
   const stop = () => {
@@ -176,14 +199,36 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
     setCurrentStepIndex(-1);
     setSteps([]);
     onPhaseChange?.('IDLE');
+
+    // Reset timing refs
+    stepStartTimeRef.current = null;
+    pausedAtRef.current = null;
+    totalPausedMsRef.current = 0;
+
+    // Reset audio mode
+    Audio.setAudioModeAsync({
+      staysActiveInBackground: false,
+    }).catch((error) => console.error('Failed to reset audio mode:', error));
   };
 
   const togglePause = () => {
     if (!running) return;
-    setPaused((v) => !v);
-    if (paused && currentStepIndex >= 0) {
-      onPhaseChange?.(status, steps[currentStepIndex]);
-    }
+    setPaused((v) => {
+      if (!v) {
+        // Pausing: record the pause time
+        pausedAtRef.current = Date.now();
+      } else {
+        // Resuming: accumulate pause duration
+        if (pausedAtRef.current !== null) {
+          totalPausedMsRef.current += Date.now() - pausedAtRef.current;
+          pausedAtRef.current = null;
+        }
+      }
+      if (!v && currentStepIndex >= 0) {
+        onPhaseChange?.(status, steps[currentStepIndex]);
+      }
+      return !v;
+    });
   };
 
   return {
