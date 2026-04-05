@@ -1,17 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import colors from '../constants/colors';
 import useWorkout from '../hooks/useWorkout';
-
-const formatDuration = (seconds) => {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins}m ${secs}s`;
-};
+import { formatDuration } from '../utils/time';
 
 export default function HistoryScreen() {
   const { sessions } = useWorkout();
+  const navigation = useNavigation();
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
@@ -24,13 +21,17 @@ export default function HistoryScreen() {
           .slice()
           .reverse()
           .map((session) => (
-            <View key={session.id} style={styles.card}>
+            <TouchableOpacity
+              key={session.id}
+              style={styles.card}
+              onPress={() => navigation.navigate('SessionDetail', { session })}
+            >
               <Text style={styles.circuitName}>{session.circuitName}</Text>
               <Text style={styles.field}>{`Inizio: ${new Date(session.startedAt).toLocaleString()}`}</Text>
               <Text style={styles.field}>{`Durata: ${formatDuration(session.totalDuration)}`}</Text>
               <Text style={styles.field}>{`Round completati: ${session.roundsCompleted}`}</Text>
               <Text style={styles.field}>{`Completata: ${session.completed ? 'Sì' : 'No'}`}</Text>
-            </View>
+            </TouchableOpacity>
           ))
       )}
     </ScrollView>

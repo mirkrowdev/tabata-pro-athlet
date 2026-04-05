@@ -5,6 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import colors from '../constants/colors';
 import { getActiveCircuit } from '../storage';
 import useWorkout from '../hooks/useWorkout';
+import { formatDuration } from '../utils/time';
 
 export default function HomeScreen() {
   const [activeCircuit, setActiveCircuit] = useState(null);
@@ -21,11 +22,6 @@ export default function HomeScreen() {
   );
 
   const lastSession = sessions && sessions.length > 0 ? sessions[sessions.length - 1] : null;
-  const formatDuration = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}m ${secs}s`;
-  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>

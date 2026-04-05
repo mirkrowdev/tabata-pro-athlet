@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,10 +10,21 @@ import HomeScreen from './screens/HomeScreen';
 import BuilderScreen from './screens/BuilderScreen';
 import WorkoutScreen from './screens/WorkoutScreen';
 import HistoryScreen from './screens/HistoryScreen';
+import SessionDetailScreen from './screens/SessionDetailScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import { WorkoutProvider } from './context/WorkoutContext';
 
 const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator();
+
+function HistoryStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="HistoryList" component={HistoryScreen} />
+      <Stack.Screen name="SessionDetail" component={SessionDetailScreen} />
+    </Stack.Navigator>
+  );
+}
 
 function Placeholder({ title }) {
   return (
@@ -77,7 +89,7 @@ export default function App() {
           />
           <Tab.Screen
             name="History"
-            component={HistoryScreen}
+            component={HistoryStack}
             options={{
               tabBarIcon: ({ focused }) => (
                 <Ionicons

@@ -6,6 +6,7 @@ import { DEFAULT_CIRCUIT, DEFAULT_EXERCISE } from '../constants/defaults';
 import ExerciseCard from '../components/ExerciseCard';
 import { setActiveCircuit } from '../storage';
 import useWorkout from '../hooks/useWorkout';
+import useEntitlements from '../hooks/useEntitlements';
 
 const initialState = {
   name: '',
@@ -57,6 +58,7 @@ export default function BuilderScreen() {
   const [cooldownText, setCooldownText] = useState(String(initialState.cooldown));
   const [roundRestText, setRoundRestText] = useState(String(initialState.roundRest));
   const { circuits, addCircuit } = useWorkout();
+  const { isPro } = useEntitlements();
 
   useEffect(() => {
     setRoundsText(String(state.rounds));
@@ -189,8 +191,18 @@ export default function BuilderScreen() {
 
       <Text style={[styles.previewItem, { color: colors.text, fontWeight: 'bold', marginTop: 16 }]}>Durata totale stimata: {totalTime} secondi</Text>
 
-      <TouchableOpacity style={styles.saveButton} onPress={onSaveCircuit} disabled={isLoading}>
-        <Text style={styles.saveButtonText}>{isLoading ? 'Salvataggio...' : 'Salva circuito'}</Text>
+      {!isPro && circuits.length >= 3 && (
+        <Text style={styles.limitMessage}>Limite gratuito: 3 circuiti. Aggiorna a Pro per salvarne di più.</Text>
+      )}
+
+      <TouchableOpacity
+        style={styles.saveButton}
+        onPress={onSaveCircuit}
+        disabled={isLoading || (!isPro && circuits.length >= 3)}
+      >
+        <Text style={styles.saveButtonText}>
+          {isLoading ? 'Salvataggio...' : (!isPro && circuits.length >= 3) ? 'Limite raggiunto' : 'Salva circuito'}
+        </Text>
       </TouchableOpacity>
 
       <Text style={[styles.subTitle, { marginTop: 16 }]}>Circuiti salvati</Text>
@@ -225,5 +237,6 @@ const styles = StyleSheet.create({
   savedCard: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, padding: 10, borderRadius: 10, marginBottom: 6 },
   savedTitle: { color: colors.text, fontWeight: '700' },
   savedMeta: { color: colors.textSecondary, fontSize: 12 },
+  limitMessage: { color: colors.error, textAlign: 'center', marginVertical: 8, fontWeight: '600' },
 
 });
