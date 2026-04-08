@@ -22,6 +22,11 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.mmiirrkk.tabataproathlete",
+      "foregroundService": {
+        "notificationTitle": "Tabata Pro Athlete",
+        "notificationBody": "Allenamento in corso",
+        "notificationColor": "#e63946"
+      },
       "permissions": [
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.WAKE_LOCK",

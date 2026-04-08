@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { Text, View } from 'react-native';
+import { setupNotifications } from './utils/workoutNotification';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import HomeScreen from './screens/HomeScreen';
@@ -35,6 +36,10 @@ function Placeholder({ title }) {
 }
 
 export default function App() {
+  useEffect(() => {
+    setupNotifications();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <WorkoutProvider>

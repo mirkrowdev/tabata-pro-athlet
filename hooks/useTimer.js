@@ -4,6 +4,7 @@ import { Audio } from 'expo-av';
 import * as TaskManager from 'expo-task-manager';
 import * as BackgroundFetch from 'expo-background-fetch';
 import { speak, stopSpeech } from '../utils/speech';
+import { showWorkoutNotification, hideWorkoutNotification } from '../utils/workoutNotification';
 
 function buildSteps(circuit) {
   const steps = [];
@@ -101,6 +102,7 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
     setCurrentStepIndex(stepIndex);
     setStatus(step.type);
     setSeconds(step.duration);
+    showWorkoutNotification(step.type, step.duration);
 
     // Reset timing for new step
     stepStartTimeRef.current = Date.now();
@@ -188,6 +190,8 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
           const elapsed = Date.now() - stepStartTimeRef.current - totalPausedMsRef.current;
           const remaining = Math.max(0, currentStep.duration - Math.floor(elapsed / 1000));
 
+          showWorkoutNotification(currentStep.type, remaining);
+
           if (remaining <= 0) {
             nextStep();
             return 0;
@@ -224,6 +228,7 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
 
   const stop = () => {
     stopSpeech();
+    hideWorkoutNotification();
     setRunning(false);
     setPaused(false);
     setStatus('IDLE');
