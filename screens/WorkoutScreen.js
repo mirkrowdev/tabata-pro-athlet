@@ -72,6 +72,37 @@ export default function WorkoutScreen() {
     }
   }, [seconds, running, paused]);
 
+  const handleStop = async () => {
+    if (!running) {
+      stop();
+      setElapsedSeconds(0);
+      setStartTimestamp(null);
+      return;
+    }
+
+    const completedSteps = getCompletedSteps();
+    if (completedSteps.length > 0) {
+      const roundsCompleted = [...new Set(
+        completedSteps
+          .filter(step => step.type === 'EXERCISE')
+          .map(step => step.round)
+      )].length;
+
+      await addSession({
+        completed: false,
+        completedExercises: completedSteps,
+        totalDuration: elapsedSeconds,
+        startedAt: startTimestamp?.toISOString(),
+        circuitName: circuit?.name,
+        roundsCompleted,
+      });
+    }
+
+    stop();
+    setElapsedSeconds(0);
+    setStartTimestamp(null);
+  };
+
   const handleDone = async () => {
     const duration = startTimestamp ? Math.floor((new Date() - startTimestamp) / 1000) : 0;
     await addSession({
@@ -157,7 +188,7 @@ export default function WorkoutScreen() {
       <View style={styles.bipDots}>{Array.from({ length: 10 }, (_, i) => i < (seconds <= 10 ? 10 - seconds : 0)).map((active, i) => (<View key={i} style={[styles.dot, active && styles.dotActive]} />))}</View>
 
       <View style={styles.controls}>
-        <TouchableOpacity style={styles.controlButton} onPress={stop}>
+        <TouchableOpacity style={styles.controlButton} onPress={handleStop}>
           <Text style={styles.controlText}>■</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.controlButton, styles.playButton]} onPress={() => {
@@ -170,7 +201,7 @@ export default function WorkoutScreen() {
         }}>
           <Text style={styles.controlText}>{running ? (paused ? '▶' : '⏸') : '▶'}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.controlButton} onPress={stop}>
+        <TouchableOpacity style={styles.controlButton} onPress={handleStop}>
           <Text style={styles.controlText}>⏭</Text>
           {/* TODO: implement skip functionality instead of stop */}
         </TouchableOpacity>
