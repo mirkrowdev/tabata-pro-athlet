@@ -7,6 +7,7 @@ import ExerciseCard from '../components/ExerciseCard';
 import { setActiveCircuit } from '../storage';
 import useWorkout from '../hooks/useWorkout';
 import useEntitlements from '../hooks/useEntitlements';
+import { formatDuration } from '../utils/time';
 
 const initialState = {
   name: '',
@@ -189,7 +190,7 @@ export default function BuilderScreen() {
         <Text style={styles.buttonText}>Aggiungi esercizio</Text>
       </TouchableOpacity>
 
-      <Text style={[styles.previewItem, { color: colors.text, fontWeight: 'bold', marginTop: 16 }]}>Durata totale stimata: {totalTime} secondi</Text>
+      <Text style={[styles.previewItem, { color: colors.text, fontWeight: 'bold', marginTop: 16 }]}>Durata totale stimata: {formatDuration(totalTime)}</Text>
 
       {!isPro && circuits.length >= 3 && (
         <Text style={styles.limitMessage}>Limite gratuito: 3 circuiti. Aggiorna a Pro per salvarne di più.</Text>

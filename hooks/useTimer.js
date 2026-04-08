@@ -60,6 +60,7 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
   const stepStartTimeRef = useRef(null);
   const pausedAtRef = useRef(null);
   const totalPausedMsRef = useRef(0);
+  const completedStepsRef = useRef([]);
 
   const makeBeep = async () => {
     try {
@@ -77,6 +78,21 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
     const currentSteps = stepsOverride || stepsRef.current;
     const step = currentSteps[stepIndex];
     if (!step) return;
+
+    // Track completed step before entering new one
+    if (stepIndexRef.current >= 0 && stepStartTimeRef.current) {
+      const previousStep = stepsRef.current[stepIndexRef.current];
+      if (previousStep) {
+        const actualDuration = Math.floor((Date.now() - stepStartTimeRef.current - totalPausedMsRef.current) / 1000);
+        completedStepsRef.current.push({
+          name: previousStep.name,
+          type: previousStep.type,
+          round: previousStep.round,
+          index: previousStep.index,
+          actualDuration: actualDuration
+        });
+      }
+    }
 
     if (stepsOverride) {
       setSteps(stepsOverride);
@@ -107,6 +123,21 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
     const currentSteps = stepsRef.current;
     const nextIndex = currentIndex + 1;
     if (nextIndex >= currentSteps.length) {
+      // Track the last completed step before finishing
+      if (stepStartTimeRef.current) {
+        const previousStep = stepsRef.current[stepIndexRef.current];
+        if (previousStep) {
+          const actualDuration = Math.floor((Date.now() - stepStartTimeRef.current - totalPausedMsRef.current) / 1000);
+          completedStepsRef.current.push({
+            name: previousStep.name,
+            type: previousStep.type,
+            round: previousStep.round,
+            index: previousStep.index,
+            actualDuration: actualDuration
+          });
+        }
+      }
+
       setStatus('DONE');
       setSeconds(0);
       setRunning(false);
@@ -173,6 +204,7 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
   }, [running, paused]);
 
   const start = () => {
+    completedStepsRef.current = [];
     if (!circuit || !circuit.exercises?.length) return;
     const builtSteps = buildSteps(circuit);
     if (builtSteps.length === 0) return;
@@ -204,6 +236,7 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
     stepStartTimeRef.current = null;
     pausedAtRef.current = null;
     totalPausedMsRef.current = 0;
+    completedStepsRef.current = [];
 
     // Reset audio mode
     Audio.setAudioModeAsync({
@@ -239,6 +272,7 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
     currentStepIndex,
     currentStep: steps[currentStepIndex] || null,
     nextStep: steps[currentStepIndex + 1] || null,
+    getCompletedSteps: () => completedStepsRef.current,
     start,
     stop,
     togglePause,

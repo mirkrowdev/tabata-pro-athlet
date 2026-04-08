@@ -58,6 +58,7 @@ export default function WorkoutScreen() {
     start,
     stop,
     togglePause,
+    getCompletedSteps,
     nextStep: nextStepData,
   } = useTimer({
     circuit,
@@ -79,6 +80,7 @@ export default function WorkoutScreen() {
       circuitName: circuit?.name || 'Non definito',
       roundsCompleted: circuit?.rounds || 0,
       completed: true,
+      completedExercises: getCompletedSteps(),
     });
     Alert.alert('Sessione completata', 'Sessione salvata in storico.');
     setStatus('DONE');

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,7 +21,7 @@ export default function SessionDetailScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.content}>
+        <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 32 }}>
           <Text style={styles.title}>{session.circuitName || 'Sessione senza nome'}</Text>
 
           <View style={styles.detailCard}>
@@ -47,7 +47,23 @@ export default function SessionDetailScreen() {
               </Text>
             </View>
           </View>
-        </View>
+
+          {session.completedExercises && session.completedExercises.length > 0 && (
+            <View style={[styles.detailCard, { marginTop: 20 }]}>
+              <Text style={styles.sectionTitle}>Esercizi completati</Text>
+              {session.completedExercises.map((exercise, index) => (
+                <View key={index} style={styles.exerciseRow}>
+                  <View style={styles.exerciseInfo}>
+                    <Text style={styles.exerciseName}>{exercise.name}</Text>
+                    <Text style={styles.exerciseDetails}>
+                      {exercise.type} • Round {exercise.round} • {formatDuration(exercise.actualDuration)}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
@@ -71,7 +87,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   content: {
-    flex: 1,
     padding: 16,
   },
   title: {
@@ -111,5 +126,29 @@ const styles = StyleSheet.create({
   },
   notCompleted: {
     color: colors.error,
+  },
+  sectionTitle: {
+    color: colors.primary,
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  exerciseRow: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  exerciseInfo: {
+    flex: 1,
+  },
+  exerciseName: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  exerciseDetails: {
+    color: colors.textSecondary,
+    fontSize: 14,
   },
 });
