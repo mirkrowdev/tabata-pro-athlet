@@ -20,6 +20,12 @@ export async function setupNotifications() {
 
 export async function showWorkoutNotification(phaseName, secondsRemaining) {
   try {
+    try {
+      await Notifications.dismissNotificationAsync('workout-timer');
+    } catch (dismissError) {
+      // Ignore failures from dismissing a previous notification.
+    }
+
     await Notifications.scheduleNotificationAsync({
       identifier: 'workout-timer',
       content: {
@@ -27,6 +33,7 @@ export async function showWorkoutNotification(phaseName, secondsRemaining) {
         body: `${phaseName} — ${secondsRemaining}s`,
         sticky: true,
         priority: Notifications.AndroidNotificationPriority.LOW,
+        channelId: 'workout',
       },
       trigger: null,
     });

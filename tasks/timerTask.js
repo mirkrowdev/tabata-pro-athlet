@@ -4,7 +4,6 @@ const TABATA_TIMER_TASK = 'TABATA_TIMER';
 
 TaskManager.defineTask(TABATA_TIMER_TASK, async () => {
   try {
-    console.log('Background timer task running');
     // Timer logic will be handled by the foreground app
     // This task ensures the app can continue running in the background
     return TaskManager.BackgroundFetchResult.NewData;
