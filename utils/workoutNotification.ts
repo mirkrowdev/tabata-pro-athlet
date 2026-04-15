@@ -1,52 +1,35 @@
-import * as Notifications from 'expo-notifications';
+import notifee, { AndroidImportance, AndroidCategory } from '@notifee/react-native';
 
 export async function setupNotifications(): Promise<void> {
-  await Notifications.requestPermissionsAsync();
-
-  await Notifications.setNotificationChannelAsync('workout', {
+  await notifee.createChannel({
+    id: 'workout',
     name: 'Workout Timer',
-    importance: Notifications.AndroidImportance.LOW,
-    sound: null,
+    importance: AndroidImportance.LOW,
   });
 
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: false,
-      shouldShowBanner: false,
-      shouldShowList: false,
-      shouldPlaySound: false,
-      shouldSetBadge: false,
-    }),
-  });
+  await notifee.requestPermission();
 }
 
 export async function showWorkoutNotification(phaseName: string, secondsRemaining: number): Promise<void> {
-  try {
-    try {
-      await Notifications.dismissNotificationAsync('workout-timer');
-    } catch (dismissError) {
-      // Ignore failures from dismissing a previous notification.
-    }
-
-    await Notifications.scheduleNotificationAsync({
-      identifier: 'workout-timer',
-      content: {
-        title: 'Tabata Pro Athlete',
-        body: `${phaseName} — ${secondsRemaining}s`,
-        sticky: true,
-        priority: Notifications.AndroidNotificationPriority.LOW,
-      },
-      trigger: null,
-    });
-  } catch (error) {
-    console.error('Failed to show workout notification:', error);
-  }
+  await notifee.displayNotification({
+    id: 'workout-timer',
+    title: 'Tabata Pro Athlete',
+    body: `${phaseName} — ${secondsRemaining}s`,
+    android: {
+      channelId: 'workout',
+      asForegroundService: true,
+      ongoing: true,
+      pressAction: { id: 'default' },
+      category: AndroidCategory.SERVICE,
+    },
+  });
 }
 
 export async function hideWorkoutNotification(): Promise<void> {
-  try {
-    await Notifications.dismissNotificationAsync('workout-timer');
-  } catch (error) {
-    console.error('Failed to hide workout notification:', error);
-  }
+  await notifee.stopForegroundService();
+  await notifee.cancelNotification('workout-timer');
 }
+
+notifee.registerForegroundService(() => {
+  return new Promise(() => {});
+});
