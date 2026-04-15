@@ -5,9 +5,41 @@ import * as TaskManager from 'expo-task-manager';
 import * as BackgroundFetch from 'expo-background-fetch';
 import { speak, stopSpeech } from '../utils/speech';
 import { showWorkoutNotification, hideWorkoutNotification } from '../utils/workoutNotification';
+import { Circuit, CompletedStep } from '../storage';
 
-function buildSteps(circuit) {
-  const steps = [];
+export interface TimerStep {
+  type: 'WARMUP' | 'EXERCISE' | 'REST' | 'ROUND_REST' | 'COOLDOWN';
+  duration: number;
+  name?: string;
+  label?: string;
+  round?: number;
+  index?: number;
+}
+
+export type TimerStatus = 'IDLE' | 'WARMUP' | 'EXERCISE' | 'REST' | 'ROUND_REST' | 'COOLDOWN' | 'DONE';
+
+export interface UseTimerProps {
+  circuit: Circuit | null;
+  onPhaseChange?: (status: TimerStatus, step?: TimerStep) => void;
+  onDone?: () => void;
+}
+
+export interface UseTimerReturn {
+  status: TimerStatus;
+  seconds: number;
+  running: boolean;
+  paused: boolean;
+  currentStepIndex: number;
+  currentStep: TimerStep | null;
+  nextStep: TimerStep | null;
+  getCompletedSteps: () => CompletedStep[];
+  start: () => void;
+  stop: () => void;
+  togglePause: () => void;
+}
+
+function buildSteps(circuit: Circuit | null): TimerStep[] {
+  const steps: TimerStep[] = [];
   if (!circuit) return steps;
 
   if (circuit.warmup > 0) {
@@ -47,23 +79,23 @@ function buildSteps(circuit) {
   return steps;
 }
 
-export default function useTimer({ circuit, onPhaseChange, onDone }) {
-  const [status, setStatus] = useState('IDLE');
-  const [seconds, setSeconds] = useState(0);
-  const [currentStepIndex, setCurrentStepIndex] = useState(-1);
-  const [steps, setSteps] = useState([]);
-  const [running, setRunning] = useState(false);
-  const [paused, setPaused] = useState(false);
-  const stepsRef = useRef([]);
-  const stepIndexRef = useRef(-1);
-  const intervalRef = useRef(null);
-  const soundRef = useRef(null);
-  const stepStartTimeRef = useRef(null);
-  const pausedAtRef = useRef(null);
-  const totalPausedMsRef = useRef(0);
-  const completedStepsRef = useRef([]);
+export default function useTimer({ circuit, onPhaseChange, onDone }: UseTimerProps): UseTimerReturn {
+  const [status, setStatus] = useState<TimerStatus>('IDLE');
+  const [seconds, setSeconds] = useState<number>(0);
+  const [currentStepIndex, setCurrentStepIndex] = useState<number>(-1);
+  const [steps, setSteps] = useState<TimerStep[]>([]);
+  const [running, setRunning] = useState<boolean>(false);
+  const [paused, setPaused] = useState<boolean>(false);
+  const stepsRef = useRef<TimerStep[]>([]);
+  const stepIndexRef = useRef<number>(-1);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const soundRef = useRef<Audio.Sound | null>(null);
+  const stepStartTimeRef = useRef<number | null>(null);
+  const pausedAtRef = useRef<number | null>(null);
+  const totalPausedMsRef = useRef<number>(0);
+  const completedStepsRef = useRef<CompletedStep[]>([]);
 
-  const makeBeep = async () => {
+  const makeBeep = async (): Promise<void> => {
     try {
       if (soundRef.current) {
         await soundRef.current.replayAsync();
@@ -75,7 +107,7 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
     }
   };
 
-  const enterStep = (stepIndex, stepsOverride) => {
+  const enterStep = (stepIndex: number, stepsOverride?: TimerStep[]): void => {
     const currentSteps = stepsOverride || stepsRef.current;
     const step = currentSteps[stepIndex];
     if (!step) return;
@@ -120,7 +152,7 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
     else if (step.type === 'COOLDOWN') speak('Ottimo lavoro');
   };
 
-  const nextStep = () => {
+  const nextStep = (): void => {
     const currentIndex = stepIndexRef.current;
     const currentSteps = stepsRef.current;
     const nextIndex = currentIndex + 1;
@@ -161,7 +193,7 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
   }, [currentStepIndex]);
 
   useEffect(() => {
-    const loadSound = async () => {
+    const loadSound = async (): Promise<void> => {
       try {
         const { sound } = await Audio.Sound.createAsync(require('../assets/sounds/beep.mp3'));
         soundRef.current = sound;
@@ -182,12 +214,12 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
   useEffect(() => {
     if (running && !paused) {
       intervalRef.current = setInterval(() => {
-        setSeconds((s) => {
+        setSeconds((s: number) => {
           const currentStep = stepsRef.current[stepIndexRef.current];
           if (!currentStep) return s;
 
           // Calculate remaining time using timestamp-based approach
-          const elapsed = Date.now() - stepStartTimeRef.current - totalPausedMsRef.current;
+          const elapsed = Date.now() - (stepStartTimeRef.current || Date.now()) - totalPausedMsRef.current;
           const remaining = Math.max(0, currentStep.duration - Math.floor(elapsed / 1000));
 
           showWorkoutNotification(currentStep.type, remaining);
@@ -202,12 +234,14 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
           return remaining;
         });
       }, 1000);
-      return () => clearInterval(intervalRef.current);
+      return () => {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+      };
     }
     return () => {};
   }, [running, paused]);
 
-  const start = () => {
+  const start = (): void => {
     completedStepsRef.current = [];
     if (!circuit || !circuit.exercises?.length) return;
     const builtSteps = buildSteps(circuit);
@@ -226,7 +260,7 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
     }).catch((error) => console.error('Failed to set audio mode:', error));
   };
 
-  const stop = () => {
+  const stop = (): void => {
     stopSpeech();
     hideWorkoutNotification();
     setRunning(false);
@@ -249,9 +283,9 @@ export default function useTimer({ circuit, onPhaseChange, onDone }) {
     }).catch((error) => console.error('Failed to reset audio mode:', error));
   };
 
-  const togglePause = () => {
+  const togglePause = (): void => {
     if (!running) return;
-    setPaused((v) => {
+    setPaused((v: boolean) => {
       if (!v) {
         // Pausing: record the pause time
         pausedAtRef.current = Date.now();

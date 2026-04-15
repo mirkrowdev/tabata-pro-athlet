@@ -3,7 +3,7 @@
  * @param {number} seconds - Duration in seconds
  * @returns {string} Formatted duration string
  */
-export function formatDuration(seconds) {
+export function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;

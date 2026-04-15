@@ -1,8 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import colors from '../constants/colors';
+import { Exercise } from '../storage';
 
-export default function ExerciseCard({ item, index, onChange, onDelete, onMoveUp, onMoveDown, total }) {
+interface ExerciseCardProps {
+  item: Exercise;
+  index: number;
+  total: number;
+  onChange: (index: number, exercise: Exercise) => void;
+  onDelete: (index: number) => void;
+  onMoveUp: (index: number) => void;
+  onMoveDown: (index: number) => void;
+}
+
+export default function ExerciseCard({
+  item,
+  index,
+  onChange,
+  onDelete,
+  onMoveUp,
+  onMoveDown,
+  total,
+}: ExerciseCardProps) {
   const [durationText, setDurationText] = useState(String(item.duration));
   const [restText, setRestText] = useState(String(item.rest));
 
@@ -10,6 +29,7 @@ export default function ExerciseCard({ item, index, onChange, onDelete, onMoveUp
     setDurationText(String(item.duration));
     setRestText(String(item.rest));
   }, [item.duration, item.rest]);
+
   return (
     <View style={styles.card}>
       <Text style={styles.header}>Esercizio {index + 1}</Text>

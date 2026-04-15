@@ -1,24 +1,26 @@
 import * as Notifications from 'expo-notifications';
 
-export async function setupNotifications() {
+export async function setupNotifications(): Promise<void> {
   await Notifications.requestPermissionsAsync();
 
   await Notifications.setNotificationChannelAsync('workout', {
     name: 'Workout Timer',
     importance: Notifications.AndroidImportance.LOW,
-    sound: false,
+    sound: null,
   });
 
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowAlert: false,
+      shouldShowBanner: false,
+      shouldShowList: false,
       shouldPlaySound: false,
       shouldSetBadge: false,
     }),
   });
 }
 
-export async function showWorkoutNotification(phaseName, secondsRemaining) {
+export async function showWorkoutNotification(phaseName: string, secondsRemaining: number): Promise<void> {
   try {
     try {
       await Notifications.dismissNotificationAsync('workout-timer');
@@ -33,7 +35,6 @@ export async function showWorkoutNotification(phaseName, secondsRemaining) {
         body: `${phaseName} — ${secondsRemaining}s`,
         sticky: true,
         priority: Notifications.AndroidNotificationPriority.LOW,
-        channelId: 'workout',
       },
       trigger: null,
     });
@@ -42,7 +43,7 @@ export async function showWorkoutNotification(phaseName, secondsRemaining) {
   }
 }
 
-export async function hideWorkoutNotification() {
+export async function hideWorkoutNotification(): Promise<void> {
   try {
     await Notifications.dismissNotificationAsync('workout-timer');
   } catch (error) {

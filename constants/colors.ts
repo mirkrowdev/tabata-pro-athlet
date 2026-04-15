@@ -1,4 +1,4 @@
-export default {
+const colors: Record<string, string> = {
   background: '#121212',
   surface: '#1e1e1e',
   primary: '#e63946',
@@ -8,3 +8,5 @@ export default {
   border: '#333333',
   error: '#d00000',
 };
+
+export default colors;

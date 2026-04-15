@@ -2,9 +2,9 @@
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { getActiveCircuit } from '../storage';
+import { getActiveCircuit, Circuit, CompletedStep } from '../storage';
 import { useKeepAwake } from 'expo-keep-awake';
-import useTimer from '../hooks/useTimer';
+import useTimer, { TimerStatus } from '../hooks/useTimer';
 import useWorkout from '../hooks/useWorkout';
 
 const { width } = Dimensions.get('window');
@@ -30,11 +30,11 @@ const phaseLabels = {
 };
 
 export default function WorkoutScreen() {
-  const [circuit, setCircuit] = useState(null);
-  const [status, setStatus] = useState('IDLE');
-  const [startTimestamp, setStartTimestamp] = useState(null);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const onDoneRef = useRef();
+  const [circuit, setCircuit] = useState<Circuit | null>(null);
+  const [status, setStatus] = useState<TimerStatus>('IDLE');
+  const [startTimestamp, setStartTimestamp] = useState<Date | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
+  const onDoneRef = useRef<(() => void) | null>(null);
 
   const { addSession } = useWorkout();
 
@@ -68,7 +68,7 @@ export default function WorkoutScreen() {
 
   useEffect(() => {
     if (running && !paused) {
-      setElapsedSeconds(prev => prev + 1);
+      setElapsedSeconds((prev) => prev + 1);
     }
   }, [seconds, running, paused]);
 
@@ -82,18 +82,18 @@ export default function WorkoutScreen() {
 
     const completedSteps = getCompletedSteps();
     if (completedSteps.length > 0) {
-      const roundsCompleted = [...new Set(
-        completedSteps
-          .filter(step => step.type === 'EXERCISE')
-          .map(step => step.round)
-      )].length;
+      const rounds = completedSteps
+        .filter((step) => step.type === 'EXERCISE' && step.round != null)
+        .map((step) => step.round as number);
+      const roundsCompleted = new Set(rounds).size;
 
       await addSession({
+        id: Date.now().toString(),
         completed: false,
         completedExercises: completedSteps,
         totalDuration: elapsedSeconds,
-        startedAt: startTimestamp?.toISOString(),
-        circuitName: circuit?.name,
+        startedAt: startTimestamp?.toISOString() ?? new Date().toISOString(),
+        circuitName: circuit?.name ?? 'Non definito',
         roundsCompleted,
       });
     }
@@ -104,9 +104,10 @@ export default function WorkoutScreen() {
   };
 
   const handleDone = async () => {
-    const duration = startTimestamp ? Math.floor((new Date() - startTimestamp) / 1000) : 0;
+    const duration = startTimestamp ? Math.floor((new Date().getTime() - startTimestamp.getTime()) / 1000) : 0;
     await addSession({
-      startedAt: startTimestamp?.toISOString(),
+      id: Date.now().toString(),
+      startedAt: startTimestamp?.toISOString() ?? new Date().toISOString(),
       totalDuration: duration,
       circuitName: circuit?.name || 'Non definito',
       roundsCompleted: circuit?.rounds || 0,
@@ -134,8 +135,8 @@ export default function WorkoutScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#0d0d0d' }}>
         <View style={styles.container}>
-        <Text style={styles.noCircuit}>Nessun circuito attivo. Vai su Builder per crearne uno.</Text>
-      </View>
+          <Text style={styles.noCircuit}>Nessun circuito attivo. Vai su Builder per crearne uno.</Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -144,12 +145,12 @@ export default function WorkoutScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#0d0d0d' }}>
         <View style={styles.container}>
-        <Text style={styles.doneTitle}>Sessione completata!</Text>
-        <Text style={styles.doneText}>Durata totale: {totalDuration} secondi (stimato)</Text>
-        <TouchableOpacity style={styles.doneButton} onPress={() => setStatus('IDLE')}>
-          <Text style={styles.doneButtonText}>Chiudi</Text>
-        </TouchableOpacity>
-      </View>
+          <Text style={styles.doneTitle}>Sessione completata!</Text>
+          <Text style={styles.doneText}>Durata totale: {totalDuration} secondi (stimato)</Text>
+          <TouchableOpacity style={styles.doneButton} onPress={() => setStatus('IDLE')}>
+            <Text style={styles.doneButtonText}>Chiudi</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
@@ -163,54 +164,57 @@ export default function WorkoutScreen() {
     return '...';
   })();
 
+  const exerciseSubtitle = currentStep?.type === 'EXERCISE' && currentStep.index != null && currentStep.round != null
+    ? `Esercizio ${currentStep.index + 1} di ${circuit.exercises.length} · Round ${currentStep.round}/${circuit.rounds}`
+    : '';
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0d0d0d' }}>
       <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerLeft}>{circuit.name}</Text>
-        <Text style={styles.headerRight}>{phaseLabels[status] || status}</Text>
-      </View>
+        <View style={styles.header}>
+          <Text style={styles.headerLeft}>{circuit.name}</Text>
+          <Text style={styles.headerRight}>{phaseLabels[status] || status}</Text>
+        </View>
 
-      <View style={[styles.phaseBadge, { backgroundColor: phaseColors[status] || '#444' }]}>
-        <Text style={styles.phaseText}>{phaseLabels[status] || status}</Text>
-      </View>
+        <View style={[styles.phaseBadge, { backgroundColor: phaseColors[status] || '#444' }]}> 
+          <Text style={styles.phaseText}>{phaseLabels[status] || status}</Text>
+        </View>
 
-      <Text style={styles.exerciseName}>{currentStep?.name || (status === 'IDLE' ? 'Pronto' : status)}</Text>
-      <Text style={styles.subtitle}>{currentStep?.type === 'EXERCISE' ? `Esercizio ${currentStep.index + 1} di ${circuit.exercises.length} · Round ${currentStep.round}/${circuit.rounds}` : ''}</Text>
+        <Text style={styles.exerciseName}>{currentStep?.name || (status === 'IDLE' ? 'Pronto' : status)}</Text>
+        <Text style={styles.subtitle}>{exerciseSubtitle}</Text>
 
-      <View style={styles.progressBar}><View style={[styles.progressFill, { width: `${progressPercent}%` }]} /></View>
+        <View style={styles.progressBar}><View style={[styles.progressFill, { width: `${progressPercent}%` }]} /></View>
 
-      <View style={[styles.timerCircle, { borderColor: phaseColors[status] || '#666' }]}>
-        <Text style={styles.timerText}>{seconds}</Text>
-        <Text style={styles.timerLabel}>sec</Text>
-      </View>
+        <View style={[styles.timerCircle, { borderColor: phaseColors[status] || '#666' }]}> 
+          <Text style={styles.timerText}>{seconds}</Text>
+          <Text style={styles.timerLabel}>sec</Text>
+        </View>
 
-      <View style={styles.bipDots}>{Array.from({ length: 10 }, (_, i) => i < (seconds <= 10 ? 10 - seconds : 0)).map((active, i) => (<View key={i} style={[styles.dot, active && styles.dotActive]} />))}</View>
+        <View style={styles.bipDots}>{Array.from({ length: 10 }, (_, i) => i < (seconds <= 10 ? 10 - seconds : 0)).map((active, i) => (<View key={i} style={[styles.dot, active && styles.dotActive]} />))}</View>
 
-      <View style={styles.controls}>
-        <TouchableOpacity style={styles.controlButton} onPress={handleStop}>
-          <Text style={styles.controlText}>■</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.controlButton, styles.playButton]} onPress={() => {
-          if (!running) {
-            setStartTimestamp(new Date());
-            start();
-          } else {
-            togglePause();
-          }
-        }}>
-          <Text style={styles.controlText}>{running ? (paused ? '▶' : '⏸') : '▶'}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.controlButton} onPress={handleStop}>
-          <Text style={styles.controlText}>⏭</Text>
-          {/* TODO: implement skip functionality instead of stop */}
-        </TouchableOpacity>
-      </View>
+        <View style={styles.controls}>
+          <TouchableOpacity style={styles.controlButton} onPress={handleStop}>
+            <Text style={styles.controlText}>■</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.controlButton, styles.playButton]} onPress={() => {
+            if (!running) {
+              setStartTimestamp(new Date());
+              start();
+            } else {
+              togglePause();
+            }
+          }}>
+            <Text style={styles.controlText}>{running ? (paused ? '▶' : '⏸') : '▶'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.controlButton} onPress={handleStop}>
+            <Text style={styles.controlText}>⏭</Text>
+          </TouchableOpacity>
+        </View>
 
-      <View style={styles.nextUp}>
-        <Text style={styles.nextLabel}>PROSSIMO</Text>
-        <Text style={styles.nextText}>{nextUpText}</Text>
-      </View>
+        <View style={styles.nextUp}>
+          <Text style={styles.nextLabel}>PROSSIMO</Text>
+          <Text style={styles.nextText}>{nextUpText}</Text>
+        </View>
       </View>
     </SafeAreaView>
   );

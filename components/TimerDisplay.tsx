@@ -2,7 +2,15 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import colors from '../constants/colors';
 
-export default function TimerDisplay({ phase, seconds, round, totalRounds, exerciseName }) {
+interface TimerDisplayProps {
+  phase: string;
+  seconds: number;
+  round: number;
+  totalRounds: number;
+  exerciseName?: string;
+}
+
+export default function TimerDisplay({ phase, seconds, round, totalRounds, exerciseName }: TimerDisplayProps) {
   const mm = Math.floor(seconds / 60);
   const ss = seconds % 60;
 

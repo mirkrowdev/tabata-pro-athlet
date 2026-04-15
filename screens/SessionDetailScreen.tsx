@@ -1,14 +1,17 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, NavigationProp, ParamListBase } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import { formatDuration } from '../utils/time';
+import { Session } from '../storage';
+
+type SessionDetailRouteProp = RouteProp<{ SessionDetail: { session: Session } }, 'SessionDetail'>;
 
 export default function SessionDetailScreen() {
-  const navigation = useNavigation();
-  const route = useRoute();
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
+  const route = useRoute<SessionDetailRouteProp>();
   const { session } = route.params;
 
   return (
@@ -56,7 +59,7 @@ export default function SessionDetailScreen() {
                   <View style={styles.exerciseInfo}>
                     <Text style={styles.exerciseName}>{exercise.name}</Text>
                     <Text style={styles.exerciseDetails}>
-                      {exercise.type} • Round {exercise.round} • {formatDuration(exercise.actualDuration)}
+                      {exercise.type} • Round {exercise.round ?? '-'} • {formatDuration(exercise.actualDuration)}
                     </Text>
                   </View>
                 </View>
