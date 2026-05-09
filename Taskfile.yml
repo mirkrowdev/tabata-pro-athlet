@@ -1,0 +1,45 @@
+version: '3'
+
+vars:
+  ANDROID_HOME: "{{.HOME}}/Android/Sdk"
+  BUILD_TOOLS_VERSION: "35.0.0"
+  APK_OUTPUT: "android/app/build/outputs/apk/release/app-release.apk"
+
+env:
+  ANDROID_HOME: "{{.ANDROID_HOME}}"
+  PATH: "{{.ANDROID_HOME}}/platform-tools:{{.ANDROID_HOME}}/cmdline-tools/latest/bin:{{.ANDROID_HOME}}/build-tools/{{.BUILD_TOOLS_VERSION}}:{{.PATH}}"
+
+tasks:
+
+  start:
+    desc: "Avvia il dev server Expo"
+    cmds:
+      - npx expo start
+
+  prebuild:
+    desc: "Sincronizza il progetto nativo (esegui dopo aver aggiunto librerie)"
+    cmds:
+      - npx expo prebuild
+
+  build:local:
+    desc: "Build APK release locale via Gradle"
+    cmds:
+      - cd android && ./gradlew clean && ./gradlew assembleRelease
+      - echo ""
+      - echo "APK pronto → {{.APK_OUTPUT}}"
+
+  build:eas:
+    desc: "Build APK cloud via EAS"
+    cmds:
+      - eas build -p android --profile preview
+
+  clean:
+    desc: "Pulisce la cartella di build Android"
+    cmds:
+      - cd android && ./gradlew clean
+      - echo "Build pulita."
+
+  open:apk:
+    desc: "Apre la cartella dell'APK nel file manager"
+    cmds:
+      - xdg-open android/app/build/outputs/apk/release/

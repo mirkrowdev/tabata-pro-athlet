@@ -1,10 +1,11 @@
 import React, { createContext, useEffect, useState, ReactNode } from 'react';
-import { getCircuits, getSessions, saveCircuit, saveSession, Circuit, Session } from '../storage';
+import { getCircuits, getSessions, saveCircuit, saveSession, deleteCircuit as deleteCircuitStorage, Circuit, Session } from '../storage';
 
 export interface WorkoutContextType {
   circuits: Circuit[];
   sessions: Session[];
   addCircuit(circuit: Circuit): Promise<boolean>;
+  deleteCircuit(id: string): Promise<boolean>;
   addSession(session: Session): Promise<boolean>;
   refresh(): Promise<void>;
 }
@@ -53,6 +54,14 @@ export function WorkoutProvider({ children }: WorkoutProviderProps) {
     return success;
   };
 
+  const deleteCircuit = async (id: string) => {
+    const success = await deleteCircuitStorage(id);
+    if (success) {
+      await loadCircuits();
+    }
+    return success;
+  };
+
   const addSession = async (session: Session) => {
     const success = await saveSession(session);
     if (success) {
@@ -62,7 +71,7 @@ export function WorkoutProvider({ children }: WorkoutProviderProps) {
   };
 
   return (
-    <WorkoutContext.Provider value={{ circuits, sessions, addCircuit, addSession, refresh }}>
+    <WorkoutContext.Provider value={{ circuits, sessions, addCircuit, deleteCircuit, addSession, refresh }}>
       {children}
     </WorkoutContext.Provider>
   );

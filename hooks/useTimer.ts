@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Vibration } from 'react-native';
 import { Audio } from 'expo-av';
-import * as TaskManager from 'expo-task-manager';
-import * as BackgroundFetch from 'expo-background-fetch';
 import { speak, stopSpeech } from '../utils/speech';
 import { showWorkoutNotification, hideWorkoutNotification } from '../utils/workoutNotification';
 import { Circuit, CompletedStep } from '../storage';
@@ -94,6 +92,7 @@ export default function useTimer({ circuit, onPhaseChange, onDone }: UseTimerPro
   const pausedAtRef = useRef<number | null>(null);
   const totalPausedMsRef = useRef<number>(0);
   const completedStepsRef = useRef<CompletedStep[]>([]);
+  const shouldAdvanceRef = useRef<boolean>(false);
 
   const makeBeep = async (): Promise<void> => {
     try {
@@ -134,7 +133,6 @@ export default function useTimer({ circuit, onPhaseChange, onDone }: UseTimerPro
     setCurrentStepIndex(stepIndex);
     setStatus(step.type);
     setSeconds(step.duration);
-    showWorkoutNotification(step.type, step.duration);
 
     // Reset timing for new step
     stepStartTimeRef.current = Date.now();
@@ -214,25 +212,19 @@ export default function useTimer({ circuit, onPhaseChange, onDone }: UseTimerPro
   useEffect(() => {
     if (running && !paused) {
       intervalRef.current = setInterval(() => {
-        setSeconds((s: number) => {
-          const currentStep = stepsRef.current[stepIndexRef.current];
-          if (!currentStep) return s;
+        const currentStep = stepsRef.current[stepIndexRef.current];
+        if (!currentStep || shouldAdvanceRef.current) return;
 
-          // Calculate remaining time using timestamp-based approach
-          const elapsed = Date.now() - (stepStartTimeRef.current || Date.now()) - totalPausedMsRef.current;
-          const remaining = Math.max(0, currentStep.duration - Math.floor(elapsed / 1000));
+        const elapsed = Date.now() - (stepStartTimeRef.current || Date.now()) - totalPausedMsRef.current;
+        const remaining = Math.max(0, currentStep.duration - Math.floor(elapsed / 1000));
 
-          showWorkoutNotification(currentStep.type, remaining);
-
-          if (remaining <= 0) {
-            nextStep();
-            return 0;
-          }
-          if (remaining <= 10) {
-            makeBeep();
-          }
-          return remaining;
-        });
+        if (remaining <= 0) {
+          shouldAdvanceRef.current = true;
+          setSeconds(0);
+          return;
+        }
+        if (remaining <= 10) makeBeep();
+        setSeconds(remaining);
       }, 1000);
       return () => {
         if (intervalRef.current) clearInterval(intervalRef.current);
@@ -240,6 +232,13 @@ export default function useTimer({ circuit, onPhaseChange, onDone }: UseTimerPro
     }
     return () => {};
   }, [running, paused]);
+
+  useEffect(() => {
+    if (shouldAdvanceRef.current && running) {
+      shouldAdvanceRef.current = false;
+      nextStep();
+    }
+  }, [seconds]);
 
   const start = (): void => {
     completedStepsRef.current = [];
@@ -252,6 +251,7 @@ export default function useTimer({ circuit, onPhaseChange, onDone }: UseTimerPro
     setRunning(true);
     setPaused(false);
     enterStep(0, builtSteps);
+    showWorkoutNotification('Workout in corso', 0);
 
     // Configure audio to stay active in background
     Audio.setAudioModeAsync({

@@ -1,10 +1,11 @@
 import React, { useMemo, useReducer, useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import colors from '../constants/colors';
 import { DEFAULT_CIRCUIT, DEFAULT_EXERCISE } from '../constants/defaults';
 import ExerciseCard from '../components/ExerciseCard';
-import { setActiveCircuit, Circuit, Exercise } from '../storage';
+import { setActiveCircuit, getActiveCircuit, Circuit, Exercise } from '../storage';
 import useWorkout from '../hooks/useWorkout';
 import useEntitlements from '../hooks/useEntitlements';
 import { formatDuration } from '../utils/time';
@@ -76,8 +77,19 @@ export default function BuilderScreen() {
   const [warmupText, setWarmupText] = useState(String(initialState.warmup));
   const [cooldownText, setCooldownText] = useState(String(initialState.cooldown));
   const [roundRestText, setRoundRestText] = useState(String(initialState.roundRest));
-  const { circuits, addCircuit } = useWorkout();
+  const { circuits, addCircuit, deleteCircuit } = useWorkout();
   const { isPro } = useEntitlements();
+  const [activeCircuitId, setActiveCircuitId] = useState<string | null>(null);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadActive = async () => {
+        const active = await getActiveCircuit();
+        setActiveCircuitId(active?.id || null);
+      };
+      loadActive();
+    }, [])
+  );
 
   useEffect(() => {
     setRoundsText(String(state.rounds));
@@ -120,6 +132,11 @@ export default function BuilderScreen() {
 
   const onLoadCircuit = (circuit: Circuit) => {
     dispatch({ type: 'SET', payload: { ...circuit } });
+  };
+
+  const onSetActive = async (circuit: Circuit) => {
+    await setActiveCircuit(circuit);
+    setActiveCircuitId(circuit.id);
   };
 
   return (
@@ -232,10 +249,42 @@ export default function BuilderScreen() {
         <Text style={[styles.subTitle, { marginTop: 16 }]}>Circuiti salvati</Text>
         {circuits.length === 0 ? <Text style={styles.empty}>Nessun circuito trovato</Text> : null}
         {circuits.map((c) => (
-          <TouchableOpacity key={c.id} style={styles.savedCard} onPress={() => onLoadCircuit(c)}>
-            <Text style={styles.savedTitle}>{c.name || 'Circuito senza nome'}</Text>
-            <Text style={styles.savedMeta}>{`Aggiornato: ${new Date(c.updatedAt || '').toLocaleString()}`}</Text>
-          </TouchableOpacity>
+          <View key={c.id} style={styles.savedCard}>
+            <TouchableOpacity style={styles.savedCardContent} onPress={() => onLoadCircuit(c)}>
+              <Text style={styles.savedTitle}>{c.name || 'Circuito senza nome'}</Text>
+              <Text style={styles.savedMeta}>{`Aggiornato: ${new Date(c.updatedAt || '').toLocaleString()}`}</Text>
+            </TouchableOpacity>
+            <View style={styles.savedCardButtons}>
+              <TouchableOpacity
+                style={c.id === activeCircuitId ? styles.activeButton : styles.setActiveButton}
+                onPress={() => onSetActive(c)}
+              >
+                <Text style={c.id === activeCircuitId ? styles.activeButtonText : styles.setActiveButtonText}>
+                  {c.id === activeCircuitId ? '✓ Attivo' : '▶ Usa'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={() => {
+                  Alert.alert('Elimina circuito', 'Sei sicuro di voler eliminare questo circuito?', [
+                    { text: 'Annulla', style: 'cancel' },
+                    { text: 'Elimina', style: 'destructive', onPress: async () => {
+                      const success = await deleteCircuit(c.id);
+                      if (success) {
+                        if (c.id === activeCircuitId) {
+                          setActiveCircuitId(null);
+                        }
+                      } else {
+                        Alert.alert('Errore', 'Impossibile eliminare il circuito');
+                      }
+                    }},
+                  ]);
+                }}
+              >
+                <Text style={styles.deleteButtonText}>🗑️</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         ))}
       </ScrollView>
     </SafeAreaView>
@@ -262,5 +311,13 @@ const styles = StyleSheet.create({
   savedCard: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, padding: 10, borderRadius: 10, marginBottom: 6 },
   savedTitle: { color: colors.text, fontWeight: '700' },
   savedMeta: { color: colors.textSecondary, fontSize: 12 },
+  savedCardContent: { flex: 1 },
+  savedCardButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+  activeButton: { backgroundColor: colors.accent, padding: 8, borderRadius: 6, flex: 1, marginRight: 4 },
+  activeButtonText: { color: '#000', textAlign: 'center', fontWeight: '600' },
+  setActiveButton: { backgroundColor: colors.surface, borderColor: colors.primary, borderWidth: 1, padding: 8, borderRadius: 6, flex: 1, marginRight: 4 },
+  setActiveButtonText: { color: colors.primary, textAlign: 'center', fontWeight: '600' },
+  deleteButton: { backgroundColor: colors.error, padding: 8, borderRadius: 6, width: 40, alignItems: 'center' },
+  deleteButtonText: { color: '#fff', fontSize: 16 },
   limitMessage: { color: colors.error, textAlign: 'center', marginVertical: 8, fontWeight: '600' },
 });

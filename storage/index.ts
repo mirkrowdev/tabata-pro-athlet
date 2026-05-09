@@ -78,6 +78,13 @@ export async function saveCircuit(circuit: Circuit): Promise<boolean> {
   return success;
 }
 
+export async function deleteCircuit(id: string): Promise<boolean> {
+  const existing = await getCircuits();
+  const updated = existing.filter(c => c.id !== id);
+  const success = await setJSON(CIRCUIT_KEY, updated);
+  return success;
+}
+
 export async function getSessions(): Promise<Session[]> {
   return await getJSON<Session[]>(SESSION_KEY, []);
 }

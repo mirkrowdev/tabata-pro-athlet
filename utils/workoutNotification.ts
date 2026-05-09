@@ -11,10 +11,11 @@ export async function setupNotifications(): Promise<void> {
 }
 
 export async function showWorkoutNotification(phaseName: string, secondsRemaining: number): Promise<void> {
+  const body = secondsRemaining === 0 ? 'Workout in corso...' : `${phaseName} — ${secondsRemaining}s`;
   await notifee.displayNotification({
     id: 'workout-timer',
     title: 'Tabata Pro Athlete',
-    body: `${phaseName} — ${secondsRemaining}s`,
+    body,
     android: {
       channelId: 'workout',
       asForegroundService: true,
